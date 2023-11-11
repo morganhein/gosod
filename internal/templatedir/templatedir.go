@@ -1,6 +1,8 @@
 package templatedir
 
 import (
+	"encoding/json"
+	"fmt"
 	"io"
 	"io/fs"
 	"log"
@@ -85,7 +87,7 @@ func (t *TemplateDir) processTemplateDirFiles(targetDirectory string, data inter
 	}
 
 	// Create all directories
-	err = t.createDirectories(targetDirectory)
+	err = t.createDirectories(targetDirectory, data)
 	if err != nil {
 		return err
 	}
@@ -97,7 +99,7 @@ func (t *TemplateDir) processTemplateDirFiles(targetDirectory string, data inter
 	}
 
 	// Copy files
-	err = t.copyFiles(targetDirectory)
+	err = t.copyFiles(targetDirectory, data)
 	if err != nil {
 		return err
 	}
@@ -110,7 +112,6 @@ func (t *TemplateDir) categoriseFiles() error {
 }
 
 func (t *TemplateDir) categoriseFile(path string, info fs.DirEntry, err error) error {
-
 	// Process error
 	if err != nil {
 		return err
@@ -151,12 +152,25 @@ func (t *TemplateDir) convertPathTarget(path string, targetDirectory string) str
 	return filepath.Join(targetDirectory, path)
 }
 
-func (t *TemplateDir) createDirectories(targetDirectory string) error {
+func (t *TemplateDir) createDirectories(targetDirectory string, data any) error {
+	// convert the data to a map[string]any, so we can use it to look up names
+	b, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	var config map[string]any
+	err = json.Unmarshal(b, &config)
+	if err != nil {
+		return err
+	}
 
 	// Iterate all directories and attempt to create them
 	for _, dirPath := range t.dirs {
 
-		targetDir := t.convertPathTarget(dirPath, targetDirectory)
+		// perform variable renaming
+		remappedDirPath := renameBasedOnConfig(dirPath, config)
+
+		targetDir := t.convertPathTarget(remappedDirPath, targetDirectory)
 
 		// Create the directory
 		err := os.MkdirAll(targetDir, 0755)
@@ -170,7 +184,18 @@ func (t *TemplateDir) createDirectories(targetDirectory string) error {
 	return nil
 }
 
-func (t *TemplateDir) processTemplateDirs(targetDirectory string, data interface{}) error {
+func (t *TemplateDir) processTemplateDirs(targetDirectory string, data any) error {
+
+	// convert the data to a map[string]any, so we can use it to look up names
+	b, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	var config map[string]any
+	err = json.Unmarshal(b, &config)
+	if err != nil {
+		return err
+	}
 
 	// Iterate template files
 	for _, templateFile := range t.templateFiles {
@@ -181,8 +206,11 @@ func (t *TemplateDir) processTemplateDirs(targetDirectory string, data interface
 			return err
 		}
 
+		// perform variable renaming
+		remappedTemplateFile := renameBasedOnConfig(templateFile, config)
+
 		// Convert path to target path
-		targetFile := t.convertPathTarget(templateFile, targetDirectory)
+		targetFile := t.convertPathTarget(remappedTemplateFile, targetDirectory)
 
 		// update filename
 		baseDir := filepath.Dir(targetFile)
@@ -220,7 +248,17 @@ func (t *TemplateDir) processTemplateDirs(targetDirectory string, data interface
 	return nil
 }
 
-func (t *TemplateDir) copyFiles(targetDirectory string) error {
+func (t *TemplateDir) copyFiles(targetDirectory string, data any) error {
+	// convert the data to a map[string]any, so we can use it to look up names
+	b, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	var config map[string]any
+	err = json.Unmarshal(b, &config)
+	if err != nil {
+		return err
+	}
 
 	// Iterate over files
 	for _, filename := range t.standardFiles {
@@ -229,6 +267,9 @@ func (t *TemplateDir) copyFiles(targetDirectory string) error {
 		if renamedFile != "" {
 			targetFile = renamedFile
 		}
+
+		// perform variable renaming
+		targetFile = renameBasedOnConfig(targetFile, config)
 
 		targetFilename := t.convertPathTarget(targetFile, targetDirectory)
 		err := t.copyFile(filename, targetFilename)
@@ -263,4 +304,59 @@ func (t *TemplateDir) copyFile(source, target string) error {
 		return err
 	}
 	return d.Close()
+}
+
+func renameBasedOnConfig(input string, config map[string]any) string {
+	if !strings.Contains(input, "{") && !strings.Contains(input, "}") {
+		return input
+	}
+
+	varNames := extractBracesValues(input)
+	if len(varNames) == 0 {
+		return input
+	}
+
+	for _, varName := range varNames {
+		trimmedVarName := strings.TrimSpace(varName)
+		v, ok := config[strings.ToLower(trimmedVarName)]
+		if !ok {
+			continue
+		}
+
+		switch v := v.(type) {
+		case string:
+			input = strings.ReplaceAll(input, "{"+varName+"}", v)
+		case int:
+			input = strings.ReplaceAll(input, "{"+varName+"}", fmt.Sprintf("%d", v))
+		default:
+			continue
+		}
+	}
+	return input
+}
+
+// extractBracesValues extracts and returns all values inside curly braces from the given string.
+func extractBracesValues(s string) []string {
+	var results []string
+	var current strings.Builder
+	insideBraces := false
+
+	for _, char := range s {
+		switch char {
+		case '{':
+			insideBraces = true
+			current.Reset()
+		case '}':
+			if insideBraces {
+				results = append(results, strings.TrimSpace(current.String()))
+				insideBraces = false
+			}
+		default:
+			if insideBraces {
+				current.WriteRune(char)
+			}
+		}
+	}
+
+	return results
 }

@@ -17,6 +17,8 @@ Features:
   - Uses Go's native templating engine
   - Uses `fs.FS` for input, so it works well with `go:embed` and [debme](https://github.com/leaanthony/debme)
   - Go alternative to [cookiecutter](https://github.com/cookiecutter/cookiecutter)
+  - Folder and file naming based on project configuration
+  - 
 
 ## Installation 
 

@@ -30,10 +30,14 @@ func TestNew(t *testing.T) {
 	templDir.SetTemplateFilters([]string{".filtername", ".tmpl"})
 
 	type TestData struct {
-		Name string
+		Name        string
+		ProjectName string `json:"project_name"`
+		PackageName string `json:"package_name"`
 	}
 	err = templDir.Extract(targetDir, &TestData{
-		Name: "Roger Mellie",
+		Name:        "Roger Mellie",
+		ProjectName: "gosod",
+		PackageName: "testPackage",
 	})
 	is2.NoErr(err)
 	expectedFiles := []string{
@@ -41,6 +45,7 @@ func TestNew(t *testing.T) {
 		"subdir/included.txt",
 		"subdir/sub.go",
 		"custom.txt",
+		"gosod/testPackage.go",
 	}
 
 	err = fstest.TestFS(os.DirFS(targetDir), expectedFiles...)
