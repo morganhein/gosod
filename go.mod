@@ -1,4 +1,4 @@
-module github.com/leaanthony/gosod
+module github.com/morganhein/gosod
 
 go 1.20
 
