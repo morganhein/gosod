@@ -2,8 +2,8 @@ package gosod
 
 import (
 	"embed"
+	"github.com/leaanthony/debme"
 	"github.com/matryer/is"
-	"github.com/morganhein/debme"
 	"io/ioutil"
 	"os"
 	"path/filepath"
