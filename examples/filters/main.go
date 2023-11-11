@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/leaanthony/gosod"
+	"github.com/morganhein/gosod"
 )
 
 type config struct {

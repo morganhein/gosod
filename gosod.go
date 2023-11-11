@@ -1,7 +1,7 @@
 package gosod
 
 import (
-	"github.com/leaanthony/gosod/internal/templatedir"
+	"github.com/morganhein/gosod/internal/templatedir"
 	"io/fs"
 )
 
